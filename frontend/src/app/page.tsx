@@ -18,6 +18,7 @@ export default function Home() {
   const {
     videoRef,
     status: avatarStatus,
+    isSpeaking,
     error: avatarError,
     connect: connectAvatar,
     speakAudio,
@@ -79,6 +80,7 @@ export default function Home() {
         <AvatarDisplay
           videoRef={videoRef}
           status={avatarStatus}
+          isSpeaking={isSpeaking}
           error={avatarError}
           onConnect={connectAvatar}
         />

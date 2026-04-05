@@ -8,11 +8,13 @@ import { AvatarStatus } from "@/hooks/useHeyGenAvatar";
 export function AvatarDisplay({
   videoRef,
   status,
+  isSpeaking,
   error,
   onConnect,
 }: {
   videoRef: RefObject<HTMLVideoElement | null>;
   status: AvatarStatus;
+  isSpeaking: boolean;
   error: string | null;
   onConnect: () => void;
 }) {
@@ -77,11 +79,24 @@ export function AvatarDisplay({
         )}
       </AnimatePresence>
 
-      {/* Connected badge */}
+      {/* Status badges */}
       {isConnected && (
-        <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          Live
+        <div className="absolute top-2 right-2 flex items-center gap-2">
+          {isSpeaking && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="flex items-center gap-1.5 bg-black/60 text-white text-xs px-2 py-1 rounded-full"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              Speaking
+            </motion.div>
+          )}
+          <div className="flex items-center gap-1.5 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Live
+          </div>
         </div>
       )}
     </div>

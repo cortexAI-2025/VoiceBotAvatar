@@ -1,6 +1,11 @@
 "use client";
 
-import { LiveAvatarSession, SessionEvent } from "@heygen/liveavatar-web-sdk";
+import {
+  AgentEventsEnum,
+  LiveAvatarSession,
+  SessionEvent,
+  SessionState,
+} from "@heygen/liveavatar-web-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type AvatarStatus =
@@ -14,6 +19,7 @@ export function useHeyGenAvatar() {
   const sessionRef = useRef<LiveAvatarSession | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [status, setStatus] = useState<AvatarStatus>("idle");
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const connect = useCallback(async () => {
@@ -32,10 +38,10 @@ export function useHeyGenAvatar() {
       sessionRef.current = session;
 
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
-        if (state === "CONNECTED") setStatus("connected");
-        else if (state === "CONNECTING") setStatus("connecting");
-        else if (state === "DISCONNECTED") setStatus("disconnected");
-        else if (state === "INACTIVE") setStatus("idle");
+        if (state === SessionState.CONNECTED) setStatus("connected");
+        else if (state === SessionState.CONNECTING) setStatus("connecting");
+        else if (state === SessionState.DISCONNECTED) setStatus("disconnected");
+        else if (state === SessionState.INACTIVE) setStatus("idle");
       });
 
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
@@ -43,6 +49,13 @@ export function useHeyGenAvatar() {
           session.attach(videoRef.current);
         }
       });
+
+      session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () =>
+        setIsSpeaking(true)
+      );
+      session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () =>
+        setIsSpeaking(false)
+      );
 
       await session.start();
     } catch (err) {
@@ -56,6 +69,7 @@ export function useHeyGenAvatar() {
     await sessionRef.current?.stop();
     sessionRef.current = null;
     setStatus("idle");
+    setIsSpeaking(false);
   }, []);
 
   // Send the avatar a text message to speak (uses HeyGen TTS)
@@ -71,12 +85,12 @@ export function useHeyGenAvatar() {
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    const base64 = btoa(binary);
-    sessionRef.current?.repeatAudio(base64);
+    sessionRef.current?.repeatAudio(btoa(binary));
   }, []);
 
   const interrupt = useCallback(() => {
     sessionRef.current?.interrupt();
+    setIsSpeaking(false);
   }, []);
 
   // Cleanup on unmount
@@ -89,6 +103,7 @@ export function useHeyGenAvatar() {
   return {
     videoRef,
     status,
+    isSpeaking,
     error,
     connect,
     disconnect,
