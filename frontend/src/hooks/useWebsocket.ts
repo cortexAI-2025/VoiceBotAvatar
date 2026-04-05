@@ -7,10 +7,13 @@ export function useWebsocket({
   url,
   onNewAudio,
   onAudioDone,
+  onAudioComplete,
 }: {
   url?: string;
   onNewAudio?: (audio: Int16Array<ArrayBuffer>) => void;
   onAudioDone?: () => void;
+  /** Called once per response with the full concatenated PCM buffer */
+  onAudioComplete?: (audio: ArrayBuffer) => void;
 } = {}) {
   url =
     url ??
@@ -21,6 +24,7 @@ export function useWebsocket({
   const [agentName, setAgentName] = useState<string | null>(null);
   const websocket = useRef<WebSocket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const audioBuffer = useRef<Int16Array[]>([]);
 
   useEffect(() => {
     const ws = new WebSocket(url);
@@ -47,10 +51,22 @@ export function useWebsocket({
         }
       } else if (data.type === "response.audio.delta") {
         const audioData = new Int16Array(base64ToArrayBuffer(data.delta));
+        audioBuffer.current.push(audioData);
         if (typeof onNewAudio === "function") {
           onNewAudio(audioData);
         }
       } else if (data.type === "audio.done") {
+        if (typeof onAudioComplete === "function" && audioBuffer.current.length > 0) {
+          const totalLength = audioBuffer.current.reduce((acc, c) => acc + c.length, 0);
+          const merged = new Int16Array(totalLength);
+          let offset = 0;
+          for (const chunk of audioBuffer.current) {
+            merged.set(chunk, offset);
+            offset += chunk.length;
+          }
+          onAudioComplete(merged.buffer);
+        }
+        audioBuffer.current = [];
         if (typeof onAudioDone === "function") {
           onAudioDone();
         }
@@ -58,7 +74,7 @@ export function useWebsocket({
     });
 
     websocket.current = ws;
-  }, [url, onNewAudio, onAudioDone]);
+  }, [url, onNewAudio, onAudioDone, onAudioComplete]);
 
   useEffect(() => {
     return () => {
@@ -89,6 +105,7 @@ export function useWebsocket({
     setHistory([]);
     setIsLoading(false);
     setAgentName(null);
+    audioBuffer.current = [];
     websocket.current?.send(
       JSON.stringify({
         type: "history.update",
