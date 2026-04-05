@@ -5,6 +5,7 @@ import { AvatarDisplay } from "@/components/AvatarDisplay";
 import { ChatHistory } from "@/components/ChatDialog";
 import { Composer } from "@/components/Composer";
 import { Header } from "@/components/Header";
+import { LocalAvatarDisplay } from "@/components/LocalAvatarDisplay";
 import { useAudio } from "@/hooks/useAudio";
 import { useHeyGenAvatar } from "@/hooks/useHeyGenAvatar";
 import { useWebsocket } from "@/hooks/useWebsocket";
@@ -12,9 +13,16 @@ import { useCallback, useState } from "react";
 
 import "./styles.css";
 
+// Use the HeyGen cloud avatar only when the API key is injected at build time.
+// Falls back to the fully local canvas avatar otherwise.
+const USE_HEYGEN =
+  Boolean(process.env.NEXT_PUBLIC_HEYGEN_ENABLED) ||
+  process.env.NODE_ENV === "production"; // override in .env.local
+
 export default function Home() {
   const [prompt, setPrompt] = useState("");
 
+  // ── HeyGen avatar (optional cloud) ─────────────────────────────────
   const {
     videoRef,
     status: avatarStatus,
@@ -25,6 +33,7 @@ export default function Home() {
     interrupt: interruptAvatar,
   } = useHeyGenAvatar();
 
+  // ── Audio (recording + local playback) ─────────────────────────────
   const {
     isReady: audioIsReady,
     playAudio,
@@ -38,11 +47,12 @@ export default function Home() {
   // Forward the complete PCM buffer to HeyGen so the avatar lip-syncs
   const handleAudioComplete = useCallback(
     (audio: ArrayBuffer) => {
-      speakAudio(audio);
+      if (USE_HEYGEN) speakAudio(audio);
     },
     [speakAudio]
   );
 
+  // ── WebSocket → agent backend ───────────────────────────────────────
   const {
     isReady: websocketReady,
     sendAudioMessage,
@@ -62,7 +72,7 @@ export default function Home() {
   }
 
   async function handleStopPlaying() {
-    interruptAvatar();
+    if (USE_HEYGEN) interruptAvatar();
     await stopPlaying();
   }
 
@@ -75,15 +85,23 @@ export default function Home() {
         resetConversation={resetHistory}
       />
 
-      {/* Avatar video panel */}
+      {/* ── Avatar panel ────────────────────────────────────────────── */}
       <div className="w-full max-w-lg px-4 pt-2 pb-1">
-        <AvatarDisplay
-          videoRef={videoRef}
-          status={avatarStatus}
-          isSpeaking={isSpeaking}
-          error={avatarError}
-          onConnect={connectAvatar}
-        />
+        {USE_HEYGEN ? (
+          <AvatarDisplay
+            videoRef={videoRef}
+            status={avatarStatus}
+            isSpeaking={isSpeaking}
+            error={avatarError}
+            onConnect={connectAvatar}
+          />
+        ) : (
+          <LocalAvatarDisplay
+            frequencies={playbackFrequencies}
+            isActive={isLoading || playbackFrequencies.some((v) => v > 0.01)}
+            agentName={agentName ?? undefined}
+          />
+        )}
       </div>
 
       <ChatHistory messages={messages} isLoading={isLoading} />
