@@ -20,6 +20,8 @@ class ChatResponse(BaseModel):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
+    if os.getenv("ENABLE_GEMINI_POC") != "true":
+        raise HTTPException(404, "Gemini prototype disabled")
     key = os.getenv("GEMINI_API_KEY")
     if not key:
         raise HTTPException(503, "GEMINI_API_KEY is not configured")
