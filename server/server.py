@@ -32,7 +32,10 @@ from dotenv import load_dotenv
 # When .env file is present, it will override the environment variables
 load_dotenv(dotenv_path="../.env", override=True)
 
+from app.gemini_poc import router as gemini_poc_router
+
 app = FastAPI()
+app.include_router(gemini_poc_router)
 
 logger = getLogger(__name__)
 
